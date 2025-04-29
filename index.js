@@ -5,6 +5,7 @@ import env from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
+import cron from 'node-cron';
 import { CronJob } from "cron";
 import { DateTime } from "luxon";
 import { Console, log } from "console";
