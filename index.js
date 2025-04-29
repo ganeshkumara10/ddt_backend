@@ -18,7 +18,7 @@ env.config();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: "http://localhost:3001",
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   })
 );
