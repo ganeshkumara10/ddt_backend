@@ -482,12 +482,11 @@ async function checkAndSendReminders() {
     const reminderTimeLower = now.plus({ minutes: 14, seconds: 30 });
     const reminderTimeUpper = now.plus({ minutes: 15, seconds: 30 });
 
-    console.log('Checking tasks for reminder window:', {
+    console.log(`[${now.toISO()}] Checking tasks for reminder window:`, {
       lower: reminderTimeLower.toFormat('d/M/yyyy, h:mm:ss a'),
       upper: reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a'),
     });
 
-    // Query tasks with raw SQL filter for TO_TIMESTAMP
     const { data: tasks, error } = await supabase
       .from('post')
       .select(`
@@ -507,7 +506,10 @@ async function checkAndSendReminders() {
           AND TO_TIMESTAMP('${reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a')}', 'DD/M/YYYY, H:MM:SS pm')
       )`);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
 
     if (tasks && tasks.length > 0) {
       console.log(`Tasks found: ${tasks.length}`);
@@ -533,14 +535,24 @@ async function checkAndSendReminders() {
       });
     }
   } catch (err) {
-    console.error('Error in checkAndSendReminders:', err);
+    console.error(`[${DateTime.now().toISO()}] Error in checkAndSendReminders:`, err);
   }
 }
 
+// Health check endpoint to keep Render instance active
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: DateTime.now().toISO() });
+});
+
 // HTTP endpoint for manual testing
 app.post('/send-reminders', async (req, res) => {
-  await checkAndSendReminders();
-  res.json({ message: 'Reminder check completed' });
+  try {
+    await checkAndSendReminders();
+    res.json({ message: 'Reminder check completed' });
+  } catch (err) {
+    console.error('Manual trigger error:', err);
+    res.status(500).json({ error: 'Failed to process reminders' });
+  }
 });
 
 // Verify SMTP connection on startup
@@ -550,12 +562,21 @@ transporter.verify((error, success) => {
 });
 
 // Schedule cron job to run every minute
-cron.schedule('0 * * * *', () => {
-  console.log('Running checkAndSendReminders...');
+const cronJob = cron.schedule('0 * * * *', () => {
+  console.log(`[${DateTime.now().toISO()}] Cron job triggered`);
   checkAndSendReminders();
 }, {
   timezone: 'Asia/Kolkata',
 });
+
+// Fallback: Use setInterval to ensure execution every minute
+setInterval(() => {
+  console.log(`[${DateTime.now().toISO()}] setInterval triggered`);
+  checkAndSendReminders();
+}, 60 * 1000);
+
+// Verify cron job is scheduled
+console.log('Cron job scheduled:', cronJob.options);
 
 // job.start();
 // process.on('SIGINT', async () => {
