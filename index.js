@@ -135,6 +135,7 @@ app.post("/login", async (req, res) => {
       .select('*')
       .eq('email', email)
       .single();
+      console.log(fetchError);
     if (fetchError || !user) {
       return res.status(404).json({ error: "User not found" });
     }
