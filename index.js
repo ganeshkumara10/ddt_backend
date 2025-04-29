@@ -439,7 +439,7 @@ async function checkAndSendReminders() {
     if (error) throw error;
 
     if (tasks.length > 0) {
-      //console.log(`Tasks found: ${tasks.length}`);
+      console.log(`Tasks found: ${tasks.length}`);
       for (const row of tasks) {
         const mailOptions = {
           // Customized mail for task reminder
@@ -450,17 +450,17 @@ async function checkAndSendReminders() {
         };
 
         await transporter.sendMail(mailOptions);
-        //console.log(`Email sent to ${row.logindata.email}`);
+        console.log(`Email sent to ${row.logindata.email}`);
       }
     } else {
       // Console to check if tasks are not found
-      // console.log('No tasks found for reminder window', {
-      //   lower: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-      //   upper: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-      // });
+       console.log('No tasks found for reminder window', {
+         lower: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
+         upper: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
+       });
     }
   } catch (err) {
-    //console.error('Error in CheckAndSendReminders:', err);
+    console.error('Error in CheckAndSendReminders:', err);
   }
 }
 
@@ -469,7 +469,7 @@ job.start();
 
 process.on('SIGINT', async () => {
   job.stop();
-  //console.log('Cron job stopped.');
+  console.log('Cron job stopped.');
   process.exit(0);
 });
 
