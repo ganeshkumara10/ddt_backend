@@ -443,7 +443,7 @@ async function checkAndSendReminders() {
       .eq('completestatus', false)
       .gte('remindertime', reminderTimeLower.toISO())
       .lte('remindertime', reminderTimeUpper.toISO());
-        console.log(data);
+        console.log(tasks);
     if (error) throw error;``
 
     if (tasks.length > 0) {
