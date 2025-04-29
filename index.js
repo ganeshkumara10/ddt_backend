@@ -49,11 +49,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-app.use(function (req, res, next) {
-  //Enabling CORS
-  res.header("Access-Control-Allow-Origin", "*");
-    next();
-  });
+// app.use(function (req, res, next) {
+//   //Enabling CORS
+//   res.header("Access-Control-Allow-Origin", "*");
+//     next();
+//   });
 
 // JWT Secret Key
 const jwtSecretKey = process.env.SECRET;
