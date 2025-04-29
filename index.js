@@ -438,7 +438,7 @@ async function checkAndSendReminders() {
         completestatus,
         type,
         task,
-        logindata:logindata(email, firstname, lastname)
+        logindata:logindata!user_id(email, firstname, lastname)
       `)
       .eq('completestatus', false)
       .gte('remindertime', reminderTimeLower.toISO())
