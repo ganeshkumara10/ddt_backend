@@ -27,8 +27,8 @@ app.use(
 
 env.config();
 const port = process.env.SERVER_PORT || 3000;
-// Middleware
 
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
@@ -37,6 +37,7 @@ app.use(
   })
 );
 app.use(express.static("public"));
+
 const supabase=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_KEY);
 // Nodemailer transporter for MailSend SMTP
 const transporter = nodemailer.createTransport({
@@ -148,7 +149,7 @@ app.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       jwtSecretKey,
-      { expiresIn: "1h" }
+      { expiresIn: "2h" }
     );
     // Send success response
     res.status(200).json({
@@ -416,11 +417,18 @@ app.get("/reminderspie", validateToken, async (req, res) => {
 
 
 //Function to check and send reminders
+//Note: Supabase stores timestamps in ISO 8601 format (e.g., 2025-04-29T12:00:00.000Z)
 async function checkAndSendReminders() {
   try {
     const now = DateTime.now().setZone('Asia/Kolkata');
     const reminderTimeLower = now.plus({ minutes: 14, seconds: 30 });
     const reminderTimeUpper = now.plus({ minutes: 15, seconds: 30 });
+
+    // Log query time range for debugging
+    console.log('Checking tasks for reminder window:', {
+      lower: reminderTimeLower.toISO(),
+      upper: reminderTimeUpper.toISO(),
+    });
 
     // Query to fetch tasks and user data
     const { data: tasks, error } = await supabase
@@ -433,10 +441,10 @@ async function checkAndSendReminders() {
         logindata:logindata(email, firstname, lastname)
       `)
       .eq('completestatus', false)
-      .gte('remindertime', reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'))
-      .lte('remindertime', reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'));
+      .gte('remindertime', reminderTimeLower.toISO())
+      .lte('remindertime', reminderTimeUpper.toISO());
 
-    if (error) throw error;
+    if (error) throw error;``
 
     if (tasks.length > 0) {
       console.log(`Tasks found: ${tasks.length}`);
@@ -448,9 +456,12 @@ async function checkAndSendReminders() {
           subject: 'Upcoming Task Reminder',
           text: `Dear ${row.logindata.firstname} ${row.logindata.lastname},\n\nThis is a reminder for your task which is scheduled at ${row.remindertime}\n Type: ${row.type}\n Task: ${row.task}.\n Please complete it soon!\n\nBest regards,\nDaily task Tracker 🩷`,
         };
-
-        await transporter.sendMail(mailOptions);
-        console.log(`Email sent to ${row.logindata.email}`);
+        try{
+          await transporter.sendMail(mailOptions);
+          console.log(`Email sent to ${row.logindata.email}`);
+        }catch(emailError){
+          console.error(`Failed to send email to ${row.logindata.email}:`, emailError);
+        }
       }
     } else {
       // Console to check if tasks are not found
@@ -464,7 +475,7 @@ async function checkAndSendReminders() {
   }
 }
 
-const job = new CronJob('* * * * *', checkAndSendReminders, null, true, 'Asia/Kolkata');
+const job = new CronJob('0 * * * * *', checkAndSendReminders, null, true, 'Asia/Kolkata');
 job.start();
 
 process.on('SIGINT', async () => {
