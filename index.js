@@ -483,15 +483,29 @@ async function checkAndSendReminders() {
     const reminderTimeUpper = now.plus({ minutes: 15, seconds: 30 });
 
     console.log('Checking tasks for reminder window:', {
-      lower: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-      upper: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
+      lower: reminderTimeLower.toFormat('d/M/yyyy, h:mm:ss a'),
+      upper: reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a'),
     });
 
-    // Call Supabase RPC to get tasks
-    const { data: tasks, error } = await supabase.rpc('get_tasks_in_reminder_window', {
-      lower_time: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-      upper_time: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-    });
+    // Query tasks with raw SQL filter for TO_TIMESTAMP
+    const { data: tasks, error } = await supabase
+      .from('post')
+      .select(`
+        remindertime,
+        completestatus,
+        type,
+        task,
+        logindata:logindata!user_id(email, firstname, lastname)
+      `)
+      .eq('completestatus', false)
+      .not('remindertime', 'is', null)
+      .filter('remindertime', 'in', `(
+        SELECT remindertime 
+        FROM post 
+        WHERE TO_TIMESTAMP(remindertime, 'DD/M/YYYY, H:MM:SS pm') 
+          BETWEEN TO_TIMESTAMP('${reminderTimeLower.toFormat('d/M/yyyy, h:mm:ss a')}', 'DD/M/YYYY, H:MM:SS pm') 
+          AND TO_TIMESTAMP('${reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a')}', 'DD/M/YYYY, H:MM:SS pm')
+      )`);
 
     if (error) throw error;
 
@@ -500,22 +514,22 @@ async function checkAndSendReminders() {
       for (const row of tasks) {
         const mailOptions = {
           from: process.env.SMTP_EMAIL,
-          to: row.email,
+          to: row.logindata.email,
           subject: 'Upcoming Task Reminder',
-          text: `Dear ${row.firstname} ${row.lastname},\n\nThis is a reminder for your task scheduled at ${row.remindertime}\nType: ${row.type}\nTask: ${row.task}.\nPlease complete it soon!\n\nBest regards,\nDaily Task Tracker 🩷`,
+          text: `Dear ${row.logindata.firstname} ${row.logindata.lastname},\n\nThis is a reminder for your task scheduled at ${row.remindertime}\nType: ${row.type}\nTask: ${row.task}.\nPlease complete it soon!\n\nBest regards,\nDaily Task Tracker 🩷`,
         };
 
         try {
           await transporter.sendMail(mailOptions);
-          console.log(`Email sent to ${row.email}`);
+          console.log(`Email sent to ${row.logindata.email}`);
         } catch (emailError) {
-          console.error(`Failed to send email to ${row.email}:`, emailError);
+          console.error(`Failed to send email to ${row.logindata.email}:`, emailError);
         }
       }
     } else {
       console.log('No tasks found for reminder window', {
-        lower: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-        upper: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
+        lower: reminderTimeLower.toFormat('d/M/yyyy, h:mm:ss a'),
+        upper: reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a'),
       });
     }
   } catch (err) {
