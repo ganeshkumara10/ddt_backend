@@ -9,9 +9,22 @@ import { CronJob } from "cron";
 import { DateTime } from "luxon";
 import { Console, log } from "console";
 import { createClient } from "@supabase/supabase-js";
+import morgan from "morgan";
+import helmet from "helmet";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(helmet());
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+app.use(morgan("common"));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(
+  cors({
+    origins: ["http://localhost:3000"],
+  })
+);
+
 env.config();
 const port = process.env.SERVER_PORT || 3000;
 // Middleware
