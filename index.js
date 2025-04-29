@@ -19,7 +19,7 @@ const port = process.env.SERVER_PORT || 3000;
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: ["https://ddt-frontend-sand.vercel.app/"],
     credentials: true,
   })
 );
