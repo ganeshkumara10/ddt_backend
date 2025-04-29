@@ -543,12 +543,12 @@ cron.schedule('0 * * * *', () => {
   timezone: 'Asia/Kolkata',
 });
 
-job.start();
-process.on('SIGINT', async () => {
-  job.stop();
-  console.log('Cron job stopped.');
-  process.exit(0);
-});
+// job.start();
+// process.on('SIGINT', async () => {
+//   job.stop();
+//   console.log('Cron job stopped.');
+//   process.exit(0);
+// });
 
 // Start the server
 app.listen(port, () => {
