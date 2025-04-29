@@ -12,9 +12,10 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 app.use(express.json());
+env.config();
 const port = process.env.SERVER_PORT || 3000;
 // Middleware
-env.config();
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
