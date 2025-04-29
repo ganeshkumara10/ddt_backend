@@ -133,7 +133,7 @@ app.post("/login", async (req, res) => {
     const { data: user, error: fetchError } = await supabase
       .from('logindata')
       .select('*')
-      .eq('email', email)
+      .eq('email', 'ganeshkumara10@gmail.com')
       .single();
       console.log(fetchError);
     if (fetchError || !user) {
