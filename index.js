@@ -476,9 +476,10 @@ app.get("/reminderspie", validateToken, async (req, res) => {
 //   }
 // }
 
+let lastCronExecution = null;
 async function checkAndSendReminders() {
+  const now = DateTime.now().setZone('Asia/Kolkata');
   try {
-    const now = DateTime.now().setZone('Asia/Kolkata');
     const reminderTimeLower = now.plus({ minutes: 14, seconds: 30 });
     const reminderTimeUpper = now.plus({ minutes: 15, seconds: 30 });
 
@@ -507,12 +508,12 @@ async function checkAndSendReminders() {
       )`);
 
     if (error) {
-      console.error('Supabase query error:', error);
+      console.error(`[${now.toISO()}] Supabase query error:`, error);
       throw error;
     }
 
     if (tasks && tasks.length > 0) {
-      console.log(`Tasks found: ${tasks.length}`);
+      console.log(`[${now.toISO()}] Tasks found: ${tasks.length}`);
       for (const row of tasks) {
         const mailOptions = {
           from: process.env.SMTP_EMAIL,
@@ -523,60 +524,71 @@ async function checkAndSendReminders() {
 
         try {
           await transporter.sendMail(mailOptions);
-          console.log(`Email sent to ${row.logindata.email}`);
+          console.log(`[${now.toISO()}] Email sent to ${row.logindata.email}`);
         } catch (emailError) {
-          console.error(`Failed to send email to ${row.logindata.email}:`, emailError);
+          console.error(`[${now.toISO()}] Failed to send email to ${row.logindata.email}:`, emailError);
         }
       }
     } else {
-      console.log('No tasks found for reminder window', {
+      console.log(`[${now.toISO()}] No tasks found for reminder window`, {
         lower: reminderTimeLower.toFormat('d/M/yyyy, h:mm:ss a'),
         upper: reminderTimeUpper.toFormat('d/M/yyyy, h:mm:ss a'),
       });
     }
   } catch (err) {
-    console.error(`[${DateTime.now().toISO()}] Error in checkAndSendReminders:`, err);
+    console.error(`[${now.toISO()}] Error in checkAndSendReminders:`, err);
   }
 }
 
-// Health check endpoint to keep Render instance active
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: DateTime.now().toISO() });
 });
 
-// HTTP endpoint for manual testing
+// Cron status endpoint
+app.get('/cron-status', (req, res) => {
+  res.json({
+    lastExecution: lastCronExecution ? lastCronExecution.toISO() : 'Never',
+    currentTime: DateTime.now().toISO(),
+  });
+});
+
+// Manual trigger endpoint
 app.post('/send-reminders', async (req, res) => {
   try {
     await checkAndSendReminders();
     res.json({ message: 'Reminder check completed' });
   } catch (err) {
-    console.error('Manual trigger error:', err);
+    console.error(`[${DateTime.now().toISO()}] Manual trigger error:`, err);
     res.status(500).json({ error: 'Failed to process reminders' });
   }
 });
 
-// Verify SMTP connection on startup
+// Verify SMTP connection
 transporter.verify((error, success) => {
   if (error) console.error('SMTP connection error:', error);
   else console.log('SMTP connection successful');
 });
 
-// Schedule cron job to run every minute
-const cronJob = cron.schedule('0 * * * *', () => {
-  console.log(`[${DateTime.now().toISO()}] Cron job triggered`);
+// Schedule cron job
+const cronJob = cron.schedule('*/1 * * * *', () => {
+  lastCronExecution = DateTime.now().setZone('Asia/Kolkata');
+  console.log(`[${lastCronExecution.toISO()}] Cron job triggered`);
   checkAndSendReminders();
 }, {
   timezone: 'Asia/Kolkata',
 });
 
-// Fallback: Use setInterval to ensure execution every minute
+// Fallback: setInterval
 setInterval(() => {
-  console.log(`[${DateTime.now().toISO()}] setInterval triggered`);
+  lastCronExecution = DateTime.now().setZone('Asia/Kolkata');
+  console.log(`[${lastCronExecution.toISO()}] setInterval triggered`);
   checkAndSendReminders();
 }, 60 * 1000);
 
-// Verify cron job is scheduled
+// Log cron schedule
 console.log('Cron job scheduled:', cronJob.options);
+
 
 // job.start();
 // process.on('SIGINT', async () => {
