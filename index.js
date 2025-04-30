@@ -393,6 +393,7 @@ app.get("/usercount", async (req, res) => {
 });
 
 // Costamized API to get rows of values for Pie at Reminder page
+let lastCronExecution = null;
 app.get("/reminderspie", validateToken, async (req, res) => {
   try {
     const { data: tasks, error } = await supabase
@@ -418,64 +419,6 @@ app.get("/reminderspie", validateToken, async (req, res) => {
 
 
 //Function to check and send reminders
-//Note: Supabase stores timestamps in ISO 8601 format (e.g., 2025-04-29T12:00:00.000Z)
-// async function checkAndSendReminders() {
-//   try {
-//     const now = DateTime.now().setZone('Asia/Kolkata');
-//     const reminderTimeLower = now.plus({ minutes: 14, seconds: 30 });
-//     const reminderTimeUpper = now.plus({ minutes: 15, seconds: 30 });
-
-//     // Log query time range for debugging
-//     console.log('Checking tasks for reminder window:', {
-//       lower: reminderTimeLower.toISO(),
-//       upper: reminderTimeUpper.toISO(),
-//     });
-
-//     // Query to fetch tasks and user data
-//     const { data: tasks, error } = await supabase
-//       .from('post')
-//       .select(`
-//         remindertime,
-//         completestatus,
-//         type,
-//         task,
-//         logindata:logindata!user_id(email, firstname, lastname)
-//       `)
-//       .eq('completestatus', false)
-//       .gte('remindertime', reminderTimeLower.toISO())
-//       .lte('remindertime', reminderTimeUpper.toISO());
-//         //console.log(tasks);
-//     if (error) throw error;
-
-//     if (tasks.length > 0) {
-//       console.log(`Tasks found: ${tasks.length}`);
-//       for (const row of tasks) {
-//         const mailOptions = {
-//           // Customized mail for task reminder
-//           from: process.env.SMTP_EMAIL,
-//           to: row.logindata.email,
-//           subject: 'Upcoming Task Reminder',
-//           text: `Dear ${row.logindata.firstname} ${row.logindata.lastname},\n\nThis is a reminder for your task which is scheduled at ${row.remindertime}\n Type: ${row.type}\n Task: ${row.task}.\n Please complete it soon!\n\nBest regards,\nDaily task Tracker 🩷`,
-//         };
-//         try{
-//           await transporter.sendMail(mailOptions);
-//           console.log(`Email sent to ${row.logindata.email}`);
-//         }catch(emailError){
-//           console.error(`Failed to send email to ${row.logindata.email}:`, emailError);
-//         }
-//       }
-//     } else {
-//       // Console to check if tasks are not found
-//        console.log('No tasks found for reminder window', {
-//          lower: reminderTimeLower.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-//          upper: reminderTimeUpper.toFormat('dd/MM/yyyy, hh:mm:ss a'),
-//        });
-//     }
-//   } catch (err) {
-//     console.error('Error in CheckAndSendReminders:', err);
-//   }
-// }
-
 async function checkAndSendReminders() {
   const now = DateTime.now().setZone('Asia/Kolkata');
   try {
@@ -538,52 +481,6 @@ async function checkAndSendReminders() {
     console.error(`[${now.toISO()}] Error in checkAndSendReminders:`, err.message, err.stack);
   }
 }
-
-// Default route to handle 404
-app.get('/', (req, res) => {
-  res.json({ message: 'Task Reminder Backend. Use /health, /cron-status, or /send-reminders.' });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: DateTime.now().toISO() });
-});
-
-// Cron status endpoint
-app.get('/cron-status', (req, res) => {
-  res.json({
-    lastExecution: lastCronExecution ? lastCronExecution.toISO() : 'Never',
-    currentTime: DateTime.now().toISO(),
-  });
-});
-
-// Debug endpoint to inspect tasks
-app.get('/tasks', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('post')
-      .select('remindertime, completestatus, task, type')
-      .eq('completestatus', false)
-      .not('remindertime', 'is', null);
-    if (error) throw error;
-    res.json({ tasks: data });
-  } catch (err) {
-    console.error(`[${DateTime.now().toISO()}] Tasks endpoint error:`, err);
-    res.status(500).json({ error: 'Failed to fetch tasks' });
-  }
-});
-
-// Manual trigger endpoint
-app.post('/send-reminders', async (req, res) => {
-  try {
-    await checkAndSendReminders();
-    res.json({ message: 'Reminder check completed' });
-  } catch (err) {
-    console.error(`[${DateTime.now().toISO()}] Manual trigger error:`, err);
-    res.status(500).json({ error: 'Failed to process reminders' });
-  }
-});
-
 // Verify SMTP connection
 transporter.verify((error, success) => {
   if (error) {
@@ -605,12 +502,7 @@ const cronJob = cron.schedule('*/1 * * * *', () => {
 
 // Log cron schedule
 console.log('Cron job scheduled:', cronJob.options);
-// job.start();
-// process.on('SIGINT', async () => {
-//   job.stop();
-//   console.log('Cron job stopped.');
-//   process.exit(0);
-// });
+
 
 // Start the server
 app.listen(port, () => {
