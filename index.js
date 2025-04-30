@@ -476,7 +476,6 @@ app.get("/reminderspie", validateToken, async (req, res) => {
 //   }
 // }
 
-let lastCronExecution = null;
 async function checkAndSendReminders() {
   const now = DateTime.now().setZone('Asia/Kolkata');
   try {
@@ -508,7 +507,7 @@ async function checkAndSendReminders() {
       )`);
 
     if (error) {
-      console.error(`[${now.toISO()}] Supabase query error:`, error);
+      console.error(`[${now.toISO()}] Supabase query error:`, JSON.stringify(error, null, 2));
       throw error;
     }
 
@@ -526,7 +525,7 @@ async function checkAndSendReminders() {
           await transporter.sendMail(mailOptions);
           console.log(`[${now.toISO()}] Email sent to ${row.logindata.email}`);
         } catch (emailError) {
-          console.error(`[${now.toISO()}] Failed to send email to ${row.logindata.email}:`, emailError);
+          console.error(`[${now.toISO()}] Failed to send email to ${row.logindata.email}:`, emailError.message);
         }
       }
     } else {
@@ -536,9 +535,14 @@ async function checkAndSendReminders() {
       });
     }
   } catch (err) {
-    console.error(`[${now.toISO()}] Error in checkAndSendReminders:`, err);
+    console.error(`[${now.toISO()}] Error in checkAndSendReminders:`, err.message, err.stack);
   }
 }
+
+// Default route to handle 404
+app.get('/', (req, res) => {
+  res.json({ message: 'Task Reminder Backend. Use /health, /cron-status, or /send-reminders.' });
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -551,6 +555,22 @@ app.get('/cron-status', (req, res) => {
     lastExecution: lastCronExecution ? lastCronExecution.toISO() : 'Never',
     currentTime: DateTime.now().toISO(),
   });
+});
+
+// Debug endpoint to inspect tasks
+app.get('/tasks', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('post')
+      .select('remindertime, completestatus, task, type')
+      .eq('completestatus', false)
+      .not('remindertime', 'is', null);
+    if (error) throw error;
+    res.json({ tasks: data });
+  } catch (err) {
+    console.error(`[${DateTime.now().toISO()}] Tasks endpoint error:`, err);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
 });
 
 // Manual trigger endpoint
@@ -566,8 +586,12 @@ app.post('/send-reminders', async (req, res) => {
 
 // Verify SMTP connection
 transporter.verify((error, success) => {
-  if (error) console.error('SMTP connection error:', error);
-  else console.log('SMTP connection successful');
+  if (error) {
+    console.error('SMTP connection error:', error);
+    process.exit(1);
+  } else {
+    console.log('SMTP connection successful');
+  }
 });
 
 // Schedule cron job
@@ -579,17 +603,8 @@ const cronJob = cron.schedule('*/1 * * * *', () => {
   timezone: 'Asia/Kolkata',
 });
 
-// Fallback: setInterval
-setInterval(() => {
-  lastCronExecution = DateTime.now().setZone('Asia/Kolkata');
-  console.log(`[${lastCronExecution.toISO()}] setInterval triggered`);
-  checkAndSendReminders();
-}, 60 * 1000);
-
 // Log cron schedule
 console.log('Cron job scheduled:', cronJob.options);
-
-
 // job.start();
 // process.on('SIGINT', async () => {
 //   job.stop();
